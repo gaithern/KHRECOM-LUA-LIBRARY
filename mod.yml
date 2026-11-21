@@ -34,10 +34,6 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/helpers/call_redirect.lua
-- name: scripts/io_packages/helpers/code_patch.lua
-  method: copy
-  source:
-  - name: scripts/io_packages/helpers/code_patch.lua
 - name: scripts/io_packages/helpers/native.lua
   method: copy
   source:
@@ -62,6 +58,10 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/modules/exe_tables.lua
+- name: scripts/io_packages/modules/floor_warp.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/floor_warp.lua
 - name: scripts/io_packages/modules/world_select.lua
   method: copy
   source:

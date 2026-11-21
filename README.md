@@ -28,6 +28,7 @@ Modeled on [KH1-LUA-LIBRARY](https://github.com/gaithern/KH1-LUA-LIBRARY).
   | `modules/cards.lua` | Battle card inventory slots and deck byte layout. |
   | `modules/exe_tables.lua` | Static tables inside the game exe: level-up sleights, boss rewards, world select offers, EXP gems. |
   | `modules/world_select.lua` | Hook on the world-select screen setup, so a script can choose exactly which worlds a floor offers. |
+  | `modules/floor_warp.lua` | Hook on the World Warp menu, so floors without a world can still be warped to. |
   | `cffi.dll` | [cffi-lua](https://github.com/q66/cffi-lua), a C FFI for Lua, built against `dll/lua54.dll` by `build_cffi.py`. MIT, see `cffi_LICENSE.txt`. Same build as KH1-LUA-LIBRARY's. |
   | `json.lua` | Generic lua helper. From [RXI's json.lua](https://github.com/rxi/json.lua). |
 - `build.py`
@@ -93,7 +94,8 @@ checked in game yet:
 | `expGemTable` | both | Both builds use the same address, unlike every other table. One of them is probably wrong. |
 | `bossRewardTable` | both | Taken from the exe research sheets. Not yet read or written by any script. |
 | `worldSelect*Table` | both | Found in the exe code on both builds. Not yet written in game, so whether the screen picks up a change mid-game is untested. |
-| World select hook (`worldSelectSetup*`, `getCurrentFloorIndexFunction`, `isSoraStoryFunction`) | both | Tested in game on Steam: replacing the list works. An empty list crashes the game, so locked floors show their card with confirm locked instead. The confirm lock works on Steam; dimming is not yet tested in game. |
+| World select hook (`worldSelectSetup*`, `getCurrentFloorIndexFunction`, `isSoraStoryFunction`) | both | Tested in game on Steam: replacing the list works. An empty list crashes the game, so locked floors show their card with confirm locked instead. The confirm lock, card and logo dimming, and the "(Locked)" name all work in game on Steam; EGS is untested. |
+| Floor warp hook (`floorWarpBuild*`) | EGS | Tested in game on Steam. The EGS addresses were found by matching the Steam code bytes. |
 | Decks 2 and 3 | both | Deck 1 is at `-0x8D8` and deck 3 at `-0x5C0`, so decks are `0x18C` bytes apart. Deck 2 is inferred from that. |
 
 ## Currently shipped functions
@@ -200,15 +202,50 @@ error is caught and written to `khrecom_lua_library.log` so the game keeps its o
 An empty list can't be used: the screen builds one card object per choice and later calls methods on card 0
 and on the selected card without checking the count, so the game crashes. `{}` is refused (the game keeps its own
 list) and the refusal is logged. To lock a floor, offer its world and return `true` as a second value
-(`return {world_id}, true`). Installing the handler patches the confirm-button check (call at EGS `0x1303FF`, Steam
-`0x13078F`, to EGS `0x1118A0`, Steam `0x111C30`) to go through a stub that returns "not pressed" while the lock flag
-is set. The card is shown and the player can cancel out, but can't enter the world. The flag is cleared every time
-the screen is set up.
+(`return {world_id}, true`). Installing the handler also redirects the confirm-button check (call at EGS
+`0x1303FF`, Steam `0x13078F`, to EGS `0x1118A0`, Steam `0x111C30`, which takes the world select object and returns
+whether confirm was pressed) to Lua, which returns 0 ("not pressed") while the floor is locked. The card is shown
+and the player can cancel out, but can't enter the world. The lock is cleared every time the screen is set up.
 
-A locked card is also dimmed. Every frame the screen sets each card's brightness with `(y + 75) * 0.35 / 150 + 0.65`
-(back cards are darker) through a color setter (EGS `0x248290`, Steam `0x2486E0`) that writes the card's RGB
-multiplier at `+0x110`. Its call (EGS `0x130A68`, Steam `0x130DF8`) goes through a stub that multiplies the
-brightness by 0.4 while the lock flag is set.
+A locked card is also dimmed. Each card is a layout object (node at `+0x10`). The sprite draw code (Steam
+`0x24BB10`) multiplies every sprite's color by its node's color at node `+0x110` (object `+0x120`, RGBA floats), but
+only while the node's byte at node `+0x128` (object `+0x138`) is set; the result is passed down to child nodes.
+Every frame the screen sets each card's size with `(y + 75) * 0.35 / 150 + 0.65` (back cards are smaller) through a
+scale setter (EGS `0x248290`, Steam `0x2486E0`, arguments: layout object, float scale). That call (EGS `0x130A68`,
+Steam `0x130DF8`) is redirected to Lua, which calls the original and then, while locked, writes RGB 0.35 and alpha 1
+to every card object (pointers at world select `+0x118`) and sets their color switch. It also darkens the world logo,
+a separate layout object at world select `+0x170`, to RGB 0.15 so it is barely visible (alpha stays 1); that
+pointer is null while the screen is opening or closing, so it is checked first. The world select object comes from
+the setup hook.
+
+The world name in the name box is drawn every frame from a string pointer at `+0x58` of a text object at world
+select `+0x188` (vtable Steam `0x606C98`). While locked, the same Lua callback reads the game's name string, writes
+it plus " (Locked)" into a 64-byte `persistent_block`, and points `+0x58` at the block (only when it doesn't already
+point there). The longest name, "Olympus Coliseum (Locked)", was tested live and fits in the box.
+World select `+0x168` is the name box frame. All of this is tested in game on Steam.
+
+### Floor warp hook
+| Function | Arguments | Returns | Description |
+| :------- | :-------- | :------ | :---------- |
+| `allow_warp_to_unassigned_floors` | `handler` (optional) | boolean | Lets the World Warp menu reach every floor, even floors with no world assigned yet. For each of those floors, `handler(floor_number)` is called (`floor_number` is 1-13); return a world ID to show that world's icon and name, or `nil` for a blank card. Without a handler every such floor is blank. Display only: the floor's real world assignment is not changed. Returns false if the hook could not be installed. |
+
+The warp menu builds its floor list each time it opens (EGS `0x131090`, Steam `0x131420`, called only from EGS
+`0x131999`, Steam `0x131D29`). It reads each floor's world, and the highest floor you can pick (menu `+0xD4`) is the
+floor before the first floor with world 0. Vanilla never has a gap because worlds are assigned as you climb, so a
+randomizer that leaves floors unassigned would cap the menu.
+
+The menu keeps two 16-byte tables: `+0x228` is the world ID minus 1 (the name) and `+0x238` is the icon. A floor
+with no world gets `0xFF` in both, and drawing that crashes the game. `0x0E` is the game's own blank entry (it uses it
+for the current floor when you stand above the last reachable one) and shows an empty card with no name.
+
+The game fills the icon table from the world ID like this: worlds 1-9 use world ID - 1, 100 Acre Wood (`0x0A`) uses
+the byte at menu `+0xD8` plus 9, worlds `0x0B`-`0x0D` use the world ID, and anything higher uses 0.
+
+The hook redirects the builder call to Lua, runs the original, and then, for every floor whose world entry is `0xFF`,
+asks the handler for a world. If one comes back, it writes that world's entries using the rules above; otherwise it
+writes `0x0E` to both tables. It then sets `+0xD4` to 12 (13F). The real world assignments are not changed, so a
+floor's world select still decides what the floor holds. Warping to a blank floor and showing unlocked worlds on
+unassigned floors were tested in game on Steam; EGS is untested.
 
 ### World select tables
 When Sora (or Riku) starts a floor, the world-select screen builds its list of world cards from three tables in

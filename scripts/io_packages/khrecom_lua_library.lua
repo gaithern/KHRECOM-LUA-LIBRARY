@@ -2,6 +2,7 @@ local bits = require("helpers.bits")
 local cards = require("modules.cards")
 local exe_tables = require("modules.exe_tables")
 local world_select = require("modules.world_select")
+local floor_warp = require("modules.floor_warp")
 
 local SLEIGHTS_PER_BYTE = 4
 local SLEIGHT_BIT_VALUES = {2, 8, 32, 128}
@@ -308,6 +309,7 @@ return {
     get_world_select_cards = exe_tables.get_world_select_cards,
     set_world_select_handler = world_select.set_world_select_handler,
     get_world_select_choices = world_select.get_world_select_choices,
+    allow_warp_to_unassigned_floors = floor_warp.allow_warp_to_unassigned_floors,
     get_exp_gem_divisor = exe_tables.get_exp_gem_divisor,
     set_exp_gem_divisor = exe_tables.set_exp_gem_divisor
 }
