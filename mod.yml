@@ -1,0 +1,64 @@
+title: KHRECOM Lua Library
+originalAuthor: Gicu
+description: Library of Lua functions for RE:Chain of Memories mods
+assets:
+- name: dll/lua54.dll
+  method: copy
+  source:
+  - name: dll/lua54.dll
+- name: scripts/io_packages/EGSGlobal.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/EGSGlobal.lua
+- name: scripts/io_packages/SteamGlobal.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/SteamGlobal.lua
+- name: scripts/io_packages/VersionCheck.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/VersionCheck.lua
+- name: scripts/io_packages/cffi.dll
+  method: copy
+  source:
+  - name: scripts/io_packages/cffi.dll
+- name: scripts/io_packages/cffi_LICENSE.txt
+  method: copy
+  source:
+  - name: scripts/io_packages/cffi_LICENSE.txt
+- name: scripts/io_packages/helpers/bits.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/helpers/bits.lua
+- name: scripts/io_packages/helpers/call_redirect.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/helpers/call_redirect.lua
+- name: scripts/io_packages/helpers/native.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/helpers/native.lua
+- name: scripts/io_packages/json.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/json.lua
+- name: scripts/io_packages/khrecom_lua_library.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/khrecom_lua_library.lua
+- name: scripts/io_packages/memory_locations.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/memory_locations.lua
+- name: scripts/io_packages/modules/cards.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/cards.lua
+- name: scripts/io_packages/modules/exe_tables.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/exe_tables.lua
+- name: scripts/io_packages/modules/world_select.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/world_select.lua
