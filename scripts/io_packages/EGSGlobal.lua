@@ -23,7 +23,6 @@ worldSelectFloors11To13Table = 0x51D6A0
 worldSelectSetupFunction = 0x12EE00
 worldSelectSetupCallSite1 = 0x1E7F4B
 worldSelectSetupCallSite2 = 0x1E9E84
-worldSelectCardSpacingDivide = 0x12FFD5
 worldSelectConfirmCallSite = 0x1303FF
 worldSelectConfirmFunction = 0x1118A0
 getCurrentFloorIndexFunction = 0x233330

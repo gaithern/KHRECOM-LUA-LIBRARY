@@ -93,7 +93,7 @@ checked in game yet:
 | `expGemTable` | both | Both builds use the same address, unlike every other table. One of them is probably wrong. |
 | `bossRewardTable` | both | Taken from the exe research sheets. Not yet read or written by any script. |
 | `worldSelect*Table` | both | Found in the exe code on both builds. Not yet written in game, so whether the screen picks up a change mid-game is untested. |
-| World select hook (`worldSelectSetup*`, `getCurrentFloorIndexFunction`, `isSoraStoryFunction`) | both | Tested in game on Steam: replacing the list works. An empty list crashed the game (divide by zero) until the empty choice patches were added; those patches are not yet tested in game. |
+| World select hook (`worldSelectSetup*`, `getCurrentFloorIndexFunction`, `isSoraStoryFunction`) | both | Tested in game on Steam: replacing the list works. An empty list crashes the game, so locked floors show their card with confirm locked instead. The confirm lock is not yet tested in game. |
 | Decks 2 and 3 | both | Deck 1 is at `-0x8D8` and deck 3 at `-0x5C0`, so decks are `0x18C` bytes apart. Deck 2 is inferred from that. |
 
 ## Currently shipped functions
@@ -189,7 +189,7 @@ All functions below are available on the table returned by `require("khrecom_lua
 ### World select hook
 | Function | Arguments | Returns | Description |
 | :------- | :-------- | :------ | :---------- |
-| `set_world_select_handler` | `handler` | boolean | Hooks the world-select screen setup (both call sites). After the game builds its own list, `handler(floor_number, is_sora_story, vanilla_choices)` is called; `floor_number` is 1-13. Return a list of world IDs (up to 5) to replace the offer, `{}` to offer nothing, or `nil` to keep the game's list. Returns false if the hook could not be installed. |
+| `set_world_select_handler` | `handler` | boolean | Hooks the world-select screen setup (both call sites). After the game builds its own list, `handler(floor_number, is_sora_story, vanilla_choices)` is called; `floor_number` is 1-13. Return a list of world IDs (1 to 5) to replace the offer, or `nil` to keep the game's list. Return `true` as a second value to lock confirm, so the card is shown but can't be entered. Returns false if the hook could not be installed. |
 | `get_world_select_choices` | `world_select` | list of bytes | Reads the offer list from a world-select object (`+0xE0` count, `+0xEC` world IDs). |
 
 The hook redirects the calls at EGS `0x1E7F4B`/`0x1E9E84` (Steam `0x1E833B`/`0x1EA274`) to the setup function
@@ -197,13 +197,13 @@ The hook redirects the calls at EGS `0x1E7F4B`/`0x1E9E84` (Steam `0x1E833B`/`0x1
 (EGS `0x233330`, Steam `0x2337C0`) and story (EGS `0x1AA770`, Steam `0x1AAB00`), then rewrites the list. A handler
 error is caught and written to `khrecom_lua_library.log` so the game keeps its own list.
 
-The screen spaces its cards around a ring with `360 / count` (EGS `0x12FFD5`, Steam `0x130365`), which crashes when the
-count is 0. Installing the handler also installs two small patches so an empty list is safe:
-- The divide jumps to a stub that skips `idiv` when the count is 0. Every loop over the cards already checks the count.
-- The confirm-button check (call at EGS `0x1303FF`, Steam `0x13078F`, to EGS `0x1118A0`, Steam `0x111C30`) goes through
-  a stub that returns "not pressed" when the count is 0, so no world can be entered. Cancel still works.
-
-If the patches can't be installed, an empty list is refused (the game keeps its own list) and the reason is logged.
+An empty list can't be used: the screen builds one card object per choice and later calls methods on card 0
+and on the selected card without checking the count, so the game crashes. `{}` is refused (the game keeps its own
+list) and the refusal is logged. To lock a floor, offer its world and return `true` as a second value
+(`return {world_id}, true`). Installing the handler patches the confirm-button check (call at EGS `0x1303FF`, Steam
+`0x13078F`, to EGS `0x1118A0`, Steam `0x111C30`) to go through a stub that returns "not pressed" while the lock flag
+is set. The card is shown and the player can cancel out, but can't enter the world. The flag is cleared every time
+the screen is set up.
 
 ### World select tables
 When Sora (or Riku) starts a floor, the world-select screen builds its list of world cards from three tables in
