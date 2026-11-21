@@ -93,7 +93,7 @@ checked in game yet:
 | `expGemTable` | both | Both builds use the same address, unlike every other table. One of them is probably wrong. |
 | `bossRewardTable` | both | Taken from the exe research sheets. Not yet read or written by any script. |
 | `worldSelect*Table` | both | Found in the exe code on both builds. Not yet written in game, so whether the screen picks up a change mid-game is untested. |
-| World select hook (`worldSelectSetup*`, `getCurrentFloorIndexFunction`, `isSoraStoryFunction`) | both | Found in the exe code on both builds and tested against a simulated game only. Not yet run in game. What the screen does with an empty list (`{}`) is unknown. |
+| World select hook (`worldSelectSetup*`, `getCurrentFloorIndexFunction`, `isSoraStoryFunction`) | both | Tested in game on Steam: replacing the list works. An empty list crashed the game (divide by zero) until the empty choice patches were added; those patches are not yet tested in game. |
 | Decks 2 and 3 | both | Deck 1 is at `-0x8D8` and deck 3 at `-0x5C0`, so decks are `0x18C` bytes apart. Deck 2 is inferred from that. |
 
 ## Currently shipped functions
@@ -196,6 +196,14 @@ The hook redirects the calls at EGS `0x1E7F4B`/`0x1E9E84` (Steam `0x1E833B`/`0x1
 (EGS `0x12EE00`, Steam `0x12F190`). The Lua callback runs the original setup, asks the game for the current floor
 (EGS `0x233330`, Steam `0x2337C0`) and story (EGS `0x1AA770`, Steam `0x1AAB00`), then rewrites the list. A handler
 error is caught and written to `khrecom_lua_library.log` so the game keeps its own list.
+
+The screen spaces its cards around a ring with `360 / count` (EGS `0x12FFD5`, Steam `0x130365`), which crashes when the
+count is 0. Installing the handler also installs two small patches so an empty list is safe:
+- The divide jumps to a stub that skips `idiv` when the count is 0. Every loop over the cards already checks the count.
+- The confirm-button check (call at EGS `0x1303FF`, Steam `0x13078F`, to EGS `0x1118A0`, Steam `0x111C30`) goes through
+  a stub that returns "not pressed" when the count is 0, so no world can be entered. Cancel still works.
+
+If the patches can't be installed, an empty list is refused (the game keeps its own list) and the reason is logged.
 
 ### World select tables
 When Sora (or Riku) starts a floor, the world-select screen builds its list of world cards from three tables in

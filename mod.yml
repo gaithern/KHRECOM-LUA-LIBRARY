@@ -34,6 +34,10 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/helpers/call_redirect.lua
+- name: scripts/io_packages/helpers/code_patch.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/helpers/code_patch.lua
 - name: scripts/io_packages/helpers/native.lua
   method: copy
   source:
