@@ -50,6 +50,10 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/memory_locations.lua
+- name: scripts/io_packages/modules/card_ids.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/card_ids.lua
 - name: scripts/io_packages/modules/cards.lua
   method: copy
   source:
@@ -62,6 +66,18 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/modules/floor_warp.lua
+- name: scripts/io_packages/modules/item_popup.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/item_popup.lua
+- name: scripts/io_packages/modules/sleight_ids.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/sleight_ids.lua
+- name: scripts/io_packages/modules/story_rewards.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/story_rewards.lua
 - name: scripts/io_packages/modules/world_select.lua
   method: copy
   source:

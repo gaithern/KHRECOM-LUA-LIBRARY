@@ -3,6 +3,10 @@ local cards = require("modules.cards")
 local exe_tables = require("modules.exe_tables")
 local world_select = require("modules.world_select")
 local floor_warp = require("modules.floor_warp")
+local item_popup = require("modules.item_popup")
+local card_ids = require("modules.card_ids")
+local sleight_ids = require("modules.sleight_ids")
+local story_rewards = require("modules.story_rewards")
 
 local SLEIGHTS_PER_BYTE = 4
 local SLEIGHT_BIT_VALUES = {2, 8, 32, 128}
@@ -310,6 +314,26 @@ return {
     set_world_select_handler = world_select.set_world_select_handler,
     get_world_select_choices = world_select.get_world_select_choices,
     allow_warp_to_unassigned_floors = floor_warp.allow_warp_to_unassigned_floors,
+    show_item_popup = item_popup.show_item_popup,
+    show_custom_popup = item_popup.show_custom_popup,
+    show_sleight_popup = item_popup.show_sleight_popup,
+    set_story_reward_handler = story_rewards.set_story_reward_handler,
+    REWARD_KINDS = story_rewards.REWARD_KINDS,
+    ATTACK_CARDS = card_ids.ATTACK_CARDS,
+    MAGIC_CARDS = card_ids.MAGIC_CARDS,
+    SUMMON_CARDS = card_ids.SUMMON_CARDS,
+    ITEM_CARDS = card_ids.ITEM_CARDS,
+    FRIEND_CARDS = card_ids.FRIEND_CARDS,
+    ENEMY_CARDS = card_ids.ENEMY_CARDS,
+    MAP_CARDS = card_ids.MAP_CARDS,
+    KEY_CARDS = card_ids.KEY_CARDS,
+    WORLD_CARDS = card_ids.WORLD_CARDS,
+    BUMBLE_RUMBLE_CARDS = card_ids.BUMBLE_RUMBLE_CARDS,
+    GIMMICK_CARDS = card_ids.GIMMICK_CARDS,
+    BOSS_ATTACK_CARDS = card_ids.BOSS_ATTACK_CARDS,
+    SPECIAL_CARDS = card_ids.SPECIAL_CARDS,
+    PLACEHOLDER_CARD = card_ids.PLACEHOLDER_CARD,
+    SLEIGHTS = sleight_ids.SLEIGHTS,
     get_exp_gem_divisor = exe_tables.get_exp_gem_divisor,
     set_exp_gem_divisor = exe_tables.set_exp_gem_divisor
 }

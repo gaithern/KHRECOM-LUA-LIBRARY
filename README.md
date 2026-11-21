@@ -29,6 +29,10 @@ Modeled on [KH1-LUA-LIBRARY](https://github.com/gaithern/KH1-LUA-LIBRARY).
   | `modules/exe_tables.lua` | Static tables inside the game exe: level-up sleights, boss rewards, world select offers, EXP gems. |
   | `modules/world_select.lua` | Hook on the world-select screen setup, so a script can choose exactly which worlds a floor offers. |
   | `modules/floor_warp.lua` | Hook on the World Warp menu, so floors without a world can still be warped to. |
+  | `modules/item_popup.lua` | Shows the game's "obtained" popup for any card or sleight, without giving it. |
+  | `modules/card_ids.lua` | Named IDs for every card, grouped by card type. |
+  | `modules/sleight_ids.lua` | Named game indices for every sleight Sora can get. |
+  | `modules/story_rewards.lua` | Hooks on boss rewards, battle pickups and event script rewards, so a script can see or replace them. |
   | `cffi.dll` | [cffi-lua](https://github.com/q66/cffi-lua), a C FFI for Lua, built against `dll/lua54.dll` by `build_cffi.py`. MIT, see `cffi_LICENSE.txt`. Same build as KH1-LUA-LIBRARY's. |
   | `json.lua` | Generic lua helper. From [RXI's json.lua](https://github.com/rxi/json.lua). |
 - `build.py`
@@ -96,6 +100,10 @@ checked in game yet:
 | `worldSelect*Table` | both | Found in the exe code on both builds. Not yet written in game, so whether the screen picks up a change mid-game is untested. |
 | World select hook (`worldSelectSetup*`, `getCurrentFloorIndexFunction`, `isSoraStoryFunction`) | both | Tested in game on Steam: replacing the list works. An empty list crashes the game, so locked floors show their card with confirm locked instead. The confirm lock, card and logo dimming, and the "(Locked)" name all work in game on Steam; EGS is untested. |
 | Floor warp hook (`floorWarpBuild*`) | EGS | Tested in game on Steam. The EGS addresses were found by matching the Steam code bytes. |
+| Sleight popup (`gameAllocateFunction`, `getTaskParentFunction`, `sleightPopupConstructor`) | EGS | Tested in game on Steam. The EGS addresses were found by matching the Steam call sites. |
+| Story reward hooks (`giveItem*`, `giveSleightFunction`, `eventGive*`, `bossRewardGiveJumpSite`, `battlePickupGiveJumpSite`) | EGS | Boss reward and battle pickup tested in game on Steam; the event script hooks install but have not fired yet. The EGS addresses were found by matching the Steam call sites. |
+| Custom popup text (`getItemNameFunction`, `popupItemNameCallSite*`, `popupQueuedItemNameCallSite`) | EGS | Tested in game on Steam. The EGS addresses were found by matching the Steam call sites. |
+| Item popup (`showItemPopupFunction`, `itemTable`) | EGS | Tested in game on Steam. The EGS addresses were found by matching the Steam code bytes. |
 | Decks 2 and 3 | both | Deck 1 is at `-0x8D8` and deck 3 at `-0x5C0`, so decks are `0x18C` bytes apart. Deck 2 is inferred from that. |
 
 ## Currently shipped functions
@@ -223,6 +231,121 @@ select `+0x188` (vtable Steam `0x606C98`). While locked, the same Lua callback r
 it plus " (Locked)" into a 64-byte `persistent_block`, and points `+0x58` at the block (only when it doesn't already
 point there). The longest name, "Olympus Coliseum (Locked)", was tested live and fits in the box.
 World select `+0x168` is the name box frame. All of this is tested in game on Steam.
+
+### Card IDs
+One ID numbers every card in the game. The same number is the item ID the popup and give functions take, the
+`card_index` in [Cards](#cards), and the `card_id` in a deck entry. The tables come from the exe's item table (EGS
+`0x59F4A0`, Steam `0x59F2E0`): 16 bytes per ID, `0x01`-`0xCA`, with a type byte first and a pointer to the
+card's name at `+0x08`. The key names below are those names.
+
+| Table | IDs | Contents |
+| :---- | :-- | :------- |
+| `ATTACK_CARDS` | `0x01`-`0x18` | Keyblades, from `KINGDOM_KEY` to `BOND_OF_FLAME` |
+| `MAGIC_CARDS` | `0x1A`-`0x20` | `FIRE`, `BLIZZARD`, `THUNDER`, `CURE`, `GRAVITY`, `STOP`, `AERO` |
+| `SUMMON_CARDS` | `0x23`-`0x29` | `SIMBA` to `CLOUD` |
+| `ITEM_CARDS` | `0x2A`-`0x30` | `POTION` to `MEGALIXIR` |
+| `FRIEND_CARDS` | `0x31`-`0x39` | `DONALD_DUCK` to `PLUTO` |
+| `ENEMY_CARDS` | `0x44`-`0x80` | Heartless, bosses and Organization members, plus `GOLD_CARD`, `PLATINUM_CARD`, `CARD_SOLDIER_SPADE`, `CARD_SOLDIER_HEART` |
+| `MAP_CARDS` | `0xA1`-`0xB9` | Red, green and blue map cards, from `TRANQUIL_DARKNESS` to `RANDOM_JOKER` |
+| `KEY_CARDS` | `0xBA`-`0xBD` | `KEY_OF_BEGINNINGS`, `KEY_OF_GUIDANCE`, `KEY_TO_TRUTH`, `KEY_TO_REWARDS` |
+| `WORLD_CARDS` | `0xBE`-`0xCA` | `TRAVERSE_TOWN` to `CASTLE_OBLIVION` (`100 Acre Wood` is `HUNDRED_ACRE_WOOD`) |
+| `BUMBLE_RUMBLE_CARDS` | `0x19`, `0x21`, `0x22`, `0x9F` | 100 Acre Wood minigame cards: `KEYBLADE`, `WIND`, `HUNNY`, `BEE` |
+| `GIMMICK_CARDS` | `0x3A`-`0x41` | Boss gimmick cards, from `GUARD_ARMOR` to `DARKSIDE` |
+| `BOSS_ATTACK_CARDS` | `0x42`-`0x43` | `REPLIKU_SOUL_EATER`, `ZEXION` |
+| `SPECIAL_CARDS` | `0xA0` | `RELOAD` |
+| `PLACEHOLDER_CARD` | `0x3A` | Not a table: Guard Armor's gimmick card, which only says "Gimmick". `show_custom_popup` without an `item_id` cycles through all 8 gimmick cards starting here. |
+
+`BUMBLE_RUMBLE_CARDS`, `GIMMICK_CARDS`, `BOSS_ATTACK_CARDS` and `SPECIAL_CARDS` have no English name in the item
+table ("-", the boss's name, or an internal Japanese name); they were identified by showing each one with
+`show_custom_popup` in game on Steam. `0x81`-`0x9E` are left out: their internal Japanese names are boss names with
+letters (Cloud A-B, Hades A-B, Hook A-D, Axel A-B, Larxene A-C, Riku A-D, Vexen A-B, Marluxia A-C, 2 and 3,
+Lexaeus A-C, Ansem A-B, Zexion A), probably cards bosses use in battle, and the popup has no picture for them: it
+shows a plain Keyblade card with a red frame (type `0x17`) or a blue one (type `0x27`). Every other ID from `0x01` to
+`0xCA` shows a real card, so there is no blank card to use as a placeholder.
+
+### Story rewards
+| Function | Arguments | Returns | Description |
+| :------- | :-------- | :------ | :---------- |
+| `set_story_reward_handler` | `handler` | boolean | Hooks the places the game hands out rewards. Each time one runs, `handler(kind, id, value)` is called; return `true` to skip the game's own reward, anything else to let it happen. `kind` is one of `REWARD_KINDS` below. A handler error is logged and the reward goes through. `nil` removes the handler (the hooks stay but do nothing). Returns false if a hook could not be installed. |
+
+| `REWARD_KINDS` | Hooked call (Steam / EGS) | What it is | `id`, `value` |
+| :------------- | :------------------------ | :--------- | :------------ |
+| `BOSS_REWARD` (`"boss_reward"`) | jump at `0x187B37` / `0x1877A7` | The card a boss gives when beaten. `0x187AA0` finds the boss in `bossRewardTable` (25 entries of `0x18` bytes) and gives that entry's card with a popup | card ID, value |
+| `BATTLE_PICKUP` (`"battle_pickup"`) | jump at `0x230FB3` / `0x230B23` | Things picked up in battle (`0x230F90`, item at object `+0x244`, value at `+0x248`): friend cards, gimmick cards, and IDs `0xCC`-`0xD1` with amounts (orbs, not cards) | ID, value or amount |
+| `ITEM_WITH_POPUP` (`"item_with_popup"`) | call at `0x146006` / `0x145C76` | Event script command: give a card and show its popup | card ID, value |
+| `ITEM` (`"item"`) | call at `0x1468D0` / `0x146540` | Event script command: give a card without a popup | card ID, value |
+| `SLEIGHT` (`"sleight"`) | call at `0x146065` / `0x145CD5` | Event script command: give a sleight (then the full-screen popup when its show flag is set) | sleight index, `nil` |
+
+All of these end in the same functions: give with popup EGS `0x1F46C0`, Steam `0x1F4AB0(item_id, value, mode)`; give
+EGS `0x158C30`, Steam `0x158FC0(item_id, value)`; mark sleight EGS `0x23A610`, Steam `0x23AA60(sleight_index)`. The
+boss reward and battle pickup code reach the first one with a tail jump, not a call. Field card pickups
+(Steam `0x1C982F` and a copy at `0x433420`) are not hooked. On Steam, beating Guard Armor logged `battle_pickup` for
+his gimmick card (`0x3A`), Donald's friend card (`0x31`) and orbs (`0xD0`, value 24), then `boss_reward` for his
+enemy card (`0x63`). The event script commands have not fired yet in testing (Exit Hall bosses give their card
+through the boss reward), and where Exit Hall sleights such as Aerora come from is not known yet.
+
+### Sleight IDs
+`SLEIGHTS` names every sleight Sora can get, using the game's sleight index (the number `show_sleight_popup` and the
+journal sleight functions take), for example `khrecom.SLEIGHTS.SLIDING_DASH` (`0x04`) to
+`khrecom.SLEIGHTS.LUCKY_BOUNTY_LV3` (`0x56`). Sleight names are not in the exe, so the table was generated from the
+apworld's `Data/items.csv`: the game index is the apworld sleight number (item ID minus 2682000) plus 3, which matches
+`set_sleights_obtained` starting at journal `+0x1`. Picking up Gravity marking `GRAVIRA` (`0x11`) and `GRAVIGA`
+(`0x18`), and the popups for `SLIDING_DASH` and `CROSS_SLASH_PLUS` (`0x43`), confirmed it in game on Steam.
+Cross-slash+ is `CROSS_SLASH_PLUS` and Surprise! is `SURPRISE_LV2`/`SURPRISE_LV3`. Indices `0x5A`-`0x5C` (which the
+game's obtain function also accepts for Sora) and Riku's sleights (`0x5F`-`0x6B`, `0x6D`) are not named yet.
+
+### Item popup
+| Function | Arguments | Returns | Description |
+| :------- | :-------- | :------ | :---------- |
+| `show_custom_popup` | `text, item_id, value, is_premium` | boolean | Shows the small card popup with `item_id`'s card picture and value (`item_id` defaults to `PLACEHOLDER_CARD`, `value` to no number) but `text` (plain ASCII, up to 63 characters) instead of the card's name. Use it for sleights or for items from other games. Only shows the popup. Returns false (and logs why) for text that is not a string or is too long, or for the same card problems as `show_item_popup`. |
+| `show_sleight_popup` | `sleight_index` | boolean | Shows the game's sleight popup for one sleight. Only shows the popup: the journal is not changed. Returns false (and logs why) when the index is not a number from `0x00` to `0x6D`. |
+| `show_item_popup` | `item_id, value, is_premium` | boolean | Shows the game's "obtained" popup for an item. `value` is the card value 0-9, or `nil` for a card with no number; pass `is_premium` as `true` for a premium card (ignored when `value` is `nil`). Only shows the popup: nothing is added to the inventory. Returns false (and logs why) when the item ID is outside the item table, has no item type, or the value is not 0-9 or `nil`. |
+
+`item_id` is the game's item ID; use the tables in [Card IDs](#card-ids), for example
+`show_item_popup(khrecom.MAGIC_CARDS.FIRE, 7)`.
+
+Sleights are not in this table; use `show_sleight_popup` for them.
+
+Each sleight has a 2-bit state in the journal (4 per byte, starting at journal `+0x1`). EGS `0x23A610`, Steam
+`0x23AA60(sleight_index)` sets a sleight to 1 if it is still 0; Steam `0x23AF10(sleight_index, state)` writes the
+state, and Steam `0x23AFC0(sleight_index)` moves a sleight from 1 to 2 (only debug code calls it directly). Getting a
+card marks the sleights that use it: picking up Gravity calls `0x23AA60` for `0x11` and `0x18`.
+
+The event script's "give sleight" command (Steam around `0x14603B`) calls `0x23AA60`, then, when its show flag is
+set, builds the popup: it gets `0x2C0` bytes from the game's allocator (EGS `0x4AC984`, Steam `0x4ACE54`), gets the
+parent task group with EGS `0x2ACDE0`, Steam `0x2AD300(1)`, and runs the popup constructor (EGS `0x10E630`, Steam
+`0x10E9C0(object, parent, sleight_index)`). The constructor registers the popup as a game task, so the game runs and
+frees it. `show_sleight_popup` makes the same three calls. Tested in game on Steam with sleight `0x43`. That popup
+covers the whole screen, so `show_custom_popup` is usually the better way to show a sleight.
+
+The card popup gets its text from EGS `0x164910`, Steam `0x164CA0(&record)`, which picks a message ID for the item
+ID from a table (Steam `0x528560`) and returns that message's text from the game's message files (plain ASCII,
+null-terminated). The item table's name pointer is not used. The popup calls it from three places: Steam
+`0x20DB95` and `0x20DD3B` (EGS `0x20D705`, `0x20D8AB`) when it opens, and Steam `0x209644` (EGS `0x2091B4`) for the
+next queued record (the popup queues up to 4). `show_custom_popup` redirects all three calls to Lua the first time
+it is used, writes the text into one of four 64-byte slots in a `persistent_block`, remembers it together with the
+4-byte record, and shows the popup. When a lookup's record matches a remembered one, the hook returns that text
+(the newest match wins); every other lookup goes to the original. Each text is kept for 10 seconds rather than used
+once, because the popup looks the name up again while it fades out (using it once made the real name flash).
+Without an `item_id`, `show_custom_popup` cycles through the 8 gimmick cards (`0x3A`-`0x41`, all shown as
+"Gimmick") so queued placeholder popups have different records and keep their own text. If the game shows the
+exact same card and value within those 10 seconds, its popup takes the custom text. Tested in game on Steam,
+including two queued custom popups, a 63-character text (it fits in the box) and a replaced boss reward.
+
+Picking up a card in the field goes through EGS `0x1F46C0`, Steam `0x1F4AB0` `(item_id, value, mode)`. It builds a
+4-byte record (u16 item ID, value byte, type byte from the item table's first byte), gives the item with Steam
+`0x158FC0(item_id, value)` (the general give function, about 45 callers including the event script command), then
+shows the popup with EGS `0x20D4B0`, Steam `0x20D940(&record, kind, 0)`. The popup only displays; it never touches
+the inventory. In the value byte, bit `0x10` marks a premium card and the low 4 bits are the value; `0xFF` means no value (the pickup code writes it for some card types at Steam `0x1F4B37`) and shows the card without a number, which was tested in game on Steam with attack, magic, item, gimmick, map and enemy cards. `show_item_popup`
+writes the record to a `persistent_block` and calls the popup through `native.call_function`. Normal and premium
+magic cards and a world card (Neverland) were tested in game on Steam.
+
+`kind` picks the display: 1 is the small box, 2 the full-screen card. Kind 1 is skipped while game flag `0xE2` is
+set (`0x1B08C0(1, 0xE2)`), which is the case right after a battle. `0x1F4AB0` with mode 1 (boss rewards, battle
+pickups) uses the player object's `+0x390` plus 1, or 1 when there is no player object (pointer at
+`attackPowerPointer`); mode 2 (field pickups, event script) always uses 2. The library uses the mode 1 rule, so its
+popups are small in the field and full screen after a boss, like the game's own. Both were checked in game on Steam
+(a replaced boss reward came out as kind 2).
 
 ### Floor warp hook
 | Function | Arguments | Returns | Description |
