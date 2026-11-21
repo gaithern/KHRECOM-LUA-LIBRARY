@@ -4,14 +4,20 @@ local call_redirect = require("helpers.call_redirect")
 local code_patch = require("helpers.code_patch")
 
 local SETUP_FUNCTION_TYPE = "uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t)"
-local CONFIRM_STUB_KEY = "world_select_confirm_stub"
-local CONFIRM_STUB_SIZE = 64
-local CONFIRM_LOCKED_FLAG_OFFSET = 48
+local LOCK_STUB_KEY = "world_select_lock_stub"
+local LOCK_STUB_SIZE = 128
+local CONFIRM_STUB_OFFSET = 0
+local DIM_STUB_OFFSET = 32
+local LOCKED_FLAG_OFFSET = 96
+local LOCKED_BRIGHTNESS_OFFSET = 100
+local LOCKED_BRIGHTNESS = 0.4
 local CMP_BYTE_RIP_LENGTH = 7
+local JUMP_IF_EQUAL_LENGTH = 2
+local MULSS_RIP_LENGTH = 8
 
 local choice_handler = nil
 local original_setup = nil
-local confirm_locked_flag = 0
+local locked_flag_address = 0
 
 local function get_current_floor_number()
     local _, floor_index = native.call_function(getCurrentFloorIndexFunction)
@@ -23,41 +29,79 @@ local function is_sora_story()
     return (result % 256) ~= 0
 end
 
+local function float_to_bytes(value)
+    local packed = string.pack("<f", value)
+    local bytes = {}
+    for byte_number = 1, 4 do
+        bytes[byte_number] = string.byte(packed, byte_number)
+    end
+    return bytes
+end
+
+local function append_compare_flag(code, code_address, flag_address)
+    code_patch.append_bytes(code, {0x80, 0x3D})
+    local next_instruction = code_address + CMP_BYTE_RIP_LENGTH
+    code_patch.append_bytes(code, code_patch.to_bytes_32(flag_address - next_instruction))
+    code_patch.append_bytes(code, {0x00})
+end
+
 local function build_confirm_stub(stub_address, flag_address, confirm_function_address)
-    local code = {0x80, 0x3D}
-    code_patch.append_bytes(code, code_patch.to_bytes_32(flag_address - (stub_address + CMP_BYTE_RIP_LENGTH)))
-    code_patch.append_bytes(code, {0x00, 0x75, 0x05})
+    local code = {}
+    append_compare_flag(code, stub_address, flag_address)
+    code_patch.append_bytes(code, {0x75, 0x05})
     code_patch.append_relative_jump(code, stub_address, confirm_function_address)
     code_patch.append_bytes(code, {0x31, 0xC0, 0xC3})
     return code
 end
 
-local function install_confirm_lock()
-    local stub_address = code_patch.get_stub(CONFIRM_STUB_KEY, worldSelectConfirmCallSite, CONFIRM_STUB_SIZE)
+local function build_dim_stub(stub_address, flag_address, brightness_address, brightness_function_address)
+    local code = {}
+    append_compare_flag(code, stub_address, flag_address)
+    code_patch.append_bytes(code, {0x74, MULSS_RIP_LENGTH})
+    code_patch.append_bytes(code, {0xF3, 0x0F, 0x59, 0x0D})
+    local next_instruction = stub_address + CMP_BYTE_RIP_LENGTH + JUMP_IF_EQUAL_LENGTH + MULSS_RIP_LENGTH
+    code_patch.append_bytes(code, code_patch.to_bytes_32(brightness_address - next_instruction))
+    code_patch.append_relative_jump(code, stub_address, brightness_function_address)
+    return code
+end
+
+local function install_lock_patches()
+    local stub_address = code_patch.get_stub(LOCK_STUB_KEY, worldSelectConfirmCallSite, LOCK_STUB_SIZE)
     if stub_address == 0 then
         return false
     end
-    local flag_address = stub_address + CONFIRM_LOCKED_FLAG_OFFSET
-    local confirm_stub = build_confirm_stub(stub_address, flag_address, BASE_ADDR + worldSelectConfirmFunction)
-    WriteArray(stub_address, confirm_stub, true)
-    if not code_patch.call_stub(worldSelectConfirmCallSite, worldSelectConfirmFunction, stub_address) then
+    local flag_address = stub_address + LOCKED_FLAG_OFFSET
+    local brightness_address = stub_address + LOCKED_BRIGHTNESS_OFFSET
+    local confirm_stub_address = stub_address + CONFIRM_STUB_OFFSET
+    local dim_stub_address = stub_address + DIM_STUB_OFFSET
+    WriteArray(brightness_address, float_to_bytes(LOCKED_BRIGHTNESS), true)
+    local confirm_stub = build_confirm_stub(confirm_stub_address, flag_address, BASE_ADDR + worldSelectConfirmFunction)
+    WriteArray(confirm_stub_address, confirm_stub, true)
+    local dim_stub = build_dim_stub(dim_stub_address, flag_address, brightness_address, BASE_ADDR + worldSelectCardBrightnessFunction)
+    WriteArray(dim_stub_address, dim_stub, true)
+    local confirm_patched = code_patch.call_stub(worldSelectConfirmCallSite, worldSelectConfirmFunction, confirm_stub_address)
+    if not confirm_patched then
         return false
     end
-    confirm_locked_flag = flag_address
+    locked_flag_address = flag_address
+    local dim_patched = code_patch.call_stub(worldSelectCardBrightnessCallSite, worldSelectCardBrightnessFunction, dim_stub_address)
+    if not dim_patched then
+        native.log_debug("world select: could not install the locked card dimming patch")
+    end
     return true
 end
 
 local function set_confirm_locked(locked)
-    if confirm_locked_flag == 0 then
+    if locked_flag_address == 0 then
         if locked then
             native.log_debug("world select: could not lock confirm because the confirm patch is not installed")
         end
         return
     end
     if locked then
-        WriteByte(confirm_locked_flag, 1, true)
+        WriteByte(locked_flag_address, 1, true)
     else
-        WriteByte(confirm_locked_flag, 0, true)
+        WriteByte(locked_flag_address, 0, true)
     end
 end
 
@@ -119,7 +163,7 @@ local function install_hook()
     end
     local first_installed = call_redirect.redirect_call(worldSelectSetupCallSite1, worldSelectSetupFunction, SETUP_FUNCTION_TYPE, on_world_select_setup)
     local second_installed = call_redirect.redirect_call(worldSelectSetupCallSite2, worldSelectSetupFunction, SETUP_FUNCTION_TYPE, on_world_select_setup)
-    if not install_confirm_lock() then
+    if not install_lock_patches() then
         native.log_debug("world select: could not install the confirm lock patch")
     end
     return first_installed and second_installed

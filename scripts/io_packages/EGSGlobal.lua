@@ -25,5 +25,7 @@ worldSelectSetupCallSite1 = 0x1E7F4B
 worldSelectSetupCallSite2 = 0x1E9E84
 worldSelectConfirmCallSite = 0x1303FF
 worldSelectConfirmFunction = 0x1118A0
+worldSelectCardBrightnessCallSite = 0x130A68
+worldSelectCardBrightnessFunction = 0x248290
 getCurrentFloorIndexFunction = 0x233330
 isSoraStoryFunction = 0x1AA770
