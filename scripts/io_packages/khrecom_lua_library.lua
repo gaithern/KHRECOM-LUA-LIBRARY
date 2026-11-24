@@ -367,6 +367,7 @@ return {
     set_enemy_attack_multiplier = enemy_stats.set_enemy_attack_multiplier,
     set_enemy_exp_multiplier = enemy_stats.set_enemy_exp_multiplier,
     set_enemy_kind_multipliers = enemy_stats.set_enemy_kind_multipliers,
+    set_enemy_floor_stats = enemy_stats.set_enemy_floor_stats,
     get_world_enemy_kinds = enemies.get_world_enemy_kinds,
     set_world_enemy_kinds = enemies.set_world_enemy_kinds,
     set_world_enemy_swaps = enemies.set_world_enemy_swaps,

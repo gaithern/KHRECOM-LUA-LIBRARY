@@ -18,9 +18,12 @@ local FIRST_ENEMY_KIND = 1
 local LAST_ENEMY_KIND = 9999
 local MAX_MULTIPLIER = 100
 local LOWEST_HP = 1
+local HIGHEST_STAT = 1000000
+local NO_CHANGE = 1
 
 local decks = {}
 local kind_multipliers = {}
+local floor_stats_by_file = {}
 local hp_multiplier = nil
 local attack_multiplier = nil
 local exp_multiplier = nil
@@ -111,6 +114,44 @@ local function set_enemy_kind_multipliers(kind, multipliers)
     return true
 end
 
+local function check_floor_stats(floor_stats, floor)
+    if type(floor_stats) ~= "table" then
+        log.log_debug("enemy stats: floor " .. floor .. " must be a table with hp, attack and exp")
+        return false
+    end
+    if not memory_values.is_whole_number(floor_stats.hp, LOWEST_HP, HIGHEST_STAT) then
+        log.log_debug("enemy stats: floor " .. floor .. " needs an HP above 0")
+        return false
+    end
+    if not memory_values.is_whole_number(floor_stats.attack, 0, HIGHEST_STAT) then
+        log.log_debug("enemy stats: floor " .. floor .. " needs an attack of 0 or more")
+        return false
+    end
+    if not memory_values.is_whole_number(floor_stats.exp, 0, HIGHEST_STAT) then
+        log.log_debug("enemy stats: floor " .. floor .. " needs an EXP of 0 or more")
+        return false
+    end
+    return true
+end
+
+local function set_enemy_floor_stats(file_name, floors)
+    if type(file_name) ~= "string" or string.match(string.lower(file_name), "^en%d%d%d%d.*%.epd$") == nil then
+        log.log_debug("enemy stats: the file name must look like en0118_2.epd")
+        return false
+    end
+    if type(floors) ~= "table" or #floors ~= FLOOR_COUNT then
+        log.log_debug("enemy stats: floor stats need 13 floors")
+        return false
+    end
+    for floor = 1, FLOOR_COUNT do
+        if not check_floor_stats(floors[floor], floor) then
+            return false
+        end
+    end
+    floor_stats_by_file[string.lower(file_name)] = floors
+    return true
+end
+
 local function combine(first, second)
     if first == nil then
         return second
@@ -150,6 +191,14 @@ local function remember_original_stats(enp)
     return stats
 end
 
+local function get_original_stats(file_name, enp)
+    local key = string.lower(file_name) .. "@" .. string.format("%X", enp)
+    if original_stats[key] == nil then
+        original_stats[key] = remember_original_stats(enp)
+    end
+    return original_stats[key]
+end
+
 local function multiply(value, multiplier, lowest)
     local result = math.floor(value * multiplier + 0.5)
     if result < lowest then
@@ -166,14 +215,17 @@ local function apply_stats(enp, file_name, kind)
     local hp = combine(hp_multiplier, own.hp)
     local attack = combine(attack_multiplier, own.attack)
     local exp = combine(exp_multiplier, own.exp)
-    if hp == nil and attack == nil and exp == nil then
+    local stats = floor_stats_by_file[string.lower(file_name)]
+    if hp == nil and attack == nil and exp == nil and stats == nil then
         return
     end
-    local key = string.lower(file_name) .. "@" .. string.format("%X", enp)
-    if original_stats[key] == nil then
-        original_stats[key] = remember_original_stats(enp)
+    if stats ~= nil then
+        hp = combine(hp, NO_CHANGE)
+        attack = combine(attack, NO_CHANGE)
+        exp = combine(exp, NO_CHANGE)
+    else
+        stats = get_original_stats(file_name, enp)
     end
-    local stats = original_stats[key]
     for floor = 1, FLOOR_COUNT do
         local row = enp + STATS_OFFSET + (floor - 1) * STATS_ROW_SIZE
         if hp ~= nil then
@@ -203,7 +255,7 @@ local function apply_deck(enp, kind)
 end
 
 local function apply_enemy_stats()
-    local has_kind_changes = next(decks) ~= nil or next(kind_multipliers) ~= nil
+    local has_kind_changes = next(decks) ~= nil or next(kind_multipliers) ~= nil or next(floor_stats_by_file) ~= nil
     if not has_kind_changes and hp_multiplier == nil and attack_multiplier == nil and exp_multiplier == nil then
         return
     end
@@ -222,5 +274,6 @@ return {
     set_enemy_attack_multiplier = set_enemy_attack_multiplier,
     set_enemy_exp_multiplier = set_enemy_exp_multiplier,
     set_enemy_kind_multipliers = set_enemy_kind_multipliers,
+    set_enemy_floor_stats = set_enemy_floor_stats,
     apply_enemy_stats = apply_enemy_stats
 }
