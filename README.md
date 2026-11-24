@@ -135,6 +135,8 @@ All functions below are available on the table returned by `require("khrecom_lua
 | `set_attack_power` | `attack_power` | none | Sets Sora's attack power. |
 | `set_moogle_points` | `moogle_points` | none | Sets Sora's Moogle points, clamped to 0-99999. Writes the real total in Sora's stats block and the player data copy the shop shows. |
 | `set_journal_card_found` | `card_number, value` | none | Writes one entry of the journal card-found array. |
+| `set_donald_and_goofy_join_early` | `wanted` | boolean | `true` gives Sora Donald and Goofy in every world but Traverse Town until 10 Exit Halls are cleared, so they are there when Traverse Town is not floor 1. |
+| `set_movement_abilities_follow_sleights` | `wanted` | boolean | `true` keeps High Jump, Glide and Superglide on exactly while Sora has sleights 0x5A, 0x5B and 0x5C, wherever they came from. Not tested in game yet. |
 | `set_friend_flag` | `value` | none | Writes the friend flag next to the play time counter. |
 | `set_watched_days` | `value` | none | Writes the Watched 358/2 Days flag. |
 

@@ -16,6 +16,8 @@ local drop_unlocks = require("modules.drop_unlocks")
 local card_odds = require("modules.card_odds")
 local heartless_drops = require("modules.heartless_drops")
 local world_order = require("modules.world_order")
+local friends = require("modules.friends")
+local movement_abilities = require("modules.movement_abilities")
 local starting_deck = require("modules.starting_deck")
 local enemies = require("modules.enemies")
 local enemy_stats = require("modules.enemy_stats")
@@ -326,6 +328,8 @@ return {
     set_moogle_points = set_moogle_points,
     set_journal_card_found = set_journal_card_found,
     set_friend_flag = set_friend_flag,
+    set_donald_and_goofy_join_early = friends.set_donald_and_goofy_join_early,
+    set_movement_abilities_follow_sleights = movement_abilities.set_movement_abilities_follow_sleights,
     set_watched_days = set_watched_days,
     ko_sora = ko_sora,
     get_battle_card_slot = cards.get_battle_card_slot,

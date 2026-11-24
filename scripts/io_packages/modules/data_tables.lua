@@ -13,6 +13,8 @@ local drop_unlocks = require("modules.drop_unlocks")
 local card_odds = require("modules.card_odds")
 local heartless_drops = require("modules.heartless_drops")
 local world_order = require("modules.world_order")
+local friends = require("modules.friends")
+local movement_abilities = require("modules.movement_abilities")
 local starting_deck = require("modules.starting_deck")
 
 local BATTLE_CARD_FILE = "battlecardlist.bin"
@@ -31,6 +33,8 @@ local HEARTLESS_DROPS_FRAME = 4
 local ENEMY_STATS_FRAME = 5
 local DATA_FILES_FRAME = 6
 local FLOOR_LAYOUTS_FRAME = 7
+local FRIENDS_FRAME = 8
+local MOVEMENT_ABILITIES_FRAME = 9
 
 local frame_count = 0
 local frames_to_settle = 0
@@ -386,6 +390,12 @@ local function apply_game_code()
     end
     if is_frame_due(FRAMES_BETWEEN_CHECKS, WORLD_ORDER_FRAME) then
         world_order.apply_world_order()
+    end
+    if is_frame_due(FRAMES_BETWEEN_CHECKS, FRIENDS_FRAME) then
+        friends.apply_friends()
+    end
+    if is_frame_due(FRAMES_BETWEEN_CHECKS, MOVEMENT_ABILITIES_FRAME) then
+        movement_abilities.apply_movement_abilities()
     end
 end
 

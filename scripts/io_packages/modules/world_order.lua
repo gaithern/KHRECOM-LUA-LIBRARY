@@ -161,5 +161,6 @@ end
 
 return {
     set_world_order = set_world_order,
+    is_sora_story = is_sora_story,
     apply_world_order = apply_world_order
 }

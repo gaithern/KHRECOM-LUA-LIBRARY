@@ -90,6 +90,10 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/modules/floor_rooms.lua
+- name: scripts/io_packages/modules/friends.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/friends.lua
 - name: scripts/io_packages/modules/heartless_drops.lua
   method: copy
   source:
@@ -102,6 +106,10 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/modules/moogle_shop.lua
+- name: scripts/io_packages/modules/movement_abilities.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/movement_abilities.lua
 - name: scripts/io_packages/modules/sleight_ids.lua
   method: copy
   source:
