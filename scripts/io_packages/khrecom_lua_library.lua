@@ -1,12 +1,24 @@
 local bits = require("helpers.bits")
 local cards = require("modules.cards")
 local exe_tables = require("modules.exe_tables")
-local world_select = require("modules.world_select")
-local floor_warp = require("modules.floor_warp")
-local item_popup = require("modules.item_popup")
 local card_ids = require("modules.card_ids")
 local sleight_ids = require("modules.sleight_ids")
-local story_rewards = require("modules.story_rewards")
+local floor_rooms = require("modules.floor_rooms")
+local loaded_files = require("modules.loaded_files")
+local data_tables = require("modules.data_tables")
+local world_drops = require("modules.world_drops")
+local moogle_shop = require("modules.moogle_shop")
+local floor_layouts = require("modules.floor_layouts")
+local event_rewards = require("modules.event_rewards")
+local chest_rewards = require("modules.chest_rewards")
+local card_sleights = require("modules.card_sleights")
+local drop_unlocks = require("modules.drop_unlocks")
+local card_odds = require("modules.card_odds")
+local heartless_drops = require("modules.heartless_drops")
+local world_order = require("modules.world_order")
+local starting_deck = require("modules.starting_deck")
+local enemies = require("modules.enemies")
+local enemy_stats = require("modules.enemy_stats")
 
 local SLEIGHTS_PER_BYTE = 4
 local SLEIGHT_BIT_VALUES = {2, 8, 32, 128}
@@ -116,6 +128,10 @@ local function get_attack_power()
     return ReadInt(GetPointer(attackPowerPointer, ATTACK_POWER), true)
 end
 
+local function get_moogle_points()
+    return ReadInt(GetPointer(attackPowerPointer, MOOGLE_POINTS), true)
+end
+
 local function get_journal_world_value()
     return ReadShort(get_journal_address(JOURNAL_WORLD_VALUE), true)
 end
@@ -215,6 +231,18 @@ local function set_attack_power(attack_power)
     WriteInt(GetPointer(attackPowerPointer, ATTACK_POWER), attack_power, true)
 end
 
+local function set_moogle_points(moogle_points)
+    local points = moogle_points
+    if points < 0 then
+        points = 0
+    end
+    if points > MOOGLE_POINTS_MAX then
+        points = MOOGLE_POINTS_MAX
+    end
+    WriteInt(GetPointer(attackPowerPointer, MOOGLE_POINTS), points, true)
+    WriteInt(get_player_data_address(PLAYER_DATA_MOOGLE_POINTS), points, true)
+end
+
 local function set_journal_card_found(card_number, value)
     local card_address = get_journal_address(JOURNAL_CARDS_FOUND) + (card_number - 1)
     WriteByte(card_address, value, true)
@@ -273,6 +301,7 @@ return {
     get_story_progress = get_story_progress,
     get_soras_level = get_soras_level,
     get_attack_power = get_attack_power,
+    get_moogle_points = get_moogle_points,
     get_journal_world_value = get_journal_world_value,
     is_piglet_found = is_piglet_found,
     get_battle_card_inventory = get_battle_card_inventory,
@@ -294,6 +323,7 @@ return {
     set_exit_hall_events = set_exit_hall_events,
     set_story_progress = set_story_progress,
     set_attack_power = set_attack_power,
+    set_moogle_points = set_moogle_points,
     set_journal_card_found = set_journal_card_found,
     set_friend_flag = set_friend_flag,
     set_watched_days = set_watched_days,
@@ -310,15 +340,74 @@ return {
     set_boss_reward = exe_tables.set_boss_reward,
     get_world_select_card = exe_tables.get_world_select_card,
     set_world_select_card = exe_tables.set_world_select_card,
+    WORLDS = exe_tables.WORLDS,
     get_world_select_cards = exe_tables.get_world_select_cards,
-    set_world_select_handler = world_select.set_world_select_handler,
-    get_world_select_choices = world_select.get_world_select_choices,
-    allow_warp_to_unassigned_floors = floor_warp.allow_warp_to_unassigned_floors,
-    show_item_popup = item_popup.show_item_popup,
-    show_custom_popup = item_popup.show_custom_popup,
-    show_sleight_popup = item_popup.show_sleight_popup,
-    set_story_reward_handler = story_rewards.set_story_reward_handler,
-    REWARD_KINDS = story_rewards.REWARD_KINDS,
+    is_outside_floor = floor_rooms.is_outside_floor,
+    is_floor_started = floor_rooms.is_floor_started,
+    list_loaded_files = loaded_files.list_loaded_files,
+    find_loaded_file = loaded_files.find_loaded_file,
+    update_data_tables = data_tables.update_data_tables,
+    get_card_stats = data_tables.get_card_stats,
+    set_card_cp = data_tables.set_card_cp,
+    set_card_power = data_tables.set_card_power,
+    get_sleight_stats = data_tables.get_sleight_stats,
+    set_sleight_power = data_tables.set_sleight_power,
+    get_story_door_requirement = data_tables.get_story_door_requirement,
+    set_story_door_requirement = data_tables.set_story_door_requirement,
+    set_story_doors_key_only = data_tables.set_story_doors_key_only,
+    STORY_DOORS = data_tables.STORY_DOORS,
+    STORY_DOOR_KINDS = data_tables.STORY_DOOR_KINDS,
+    STORY_DOOR_COLOURS = data_tables.STORY_DOOR_COLOURS,
+    set_enemy_deck = enemy_stats.set_enemy_deck,
+    set_enemy_hp_multiplier = enemy_stats.set_enemy_hp_multiplier,
+    set_enemy_attack_multiplier = enemy_stats.set_enemy_attack_multiplier,
+    set_enemy_exp_multiplier = enemy_stats.set_enemy_exp_multiplier,
+    set_enemy_kind_multipliers = enemy_stats.set_enemy_kind_multipliers,
+    get_world_enemy_kinds = enemies.get_world_enemy_kinds,
+    set_world_enemy_kinds = enemies.set_world_enemy_kinds,
+    set_world_enemy_swaps = enemies.set_world_enemy_swaps,
+    set_boss_fight = enemies.set_boss_fight,
+    get_battle_formation = enemies.get_battle_formation,
+    set_battle_formation = enemies.set_battle_formation,
+    set_event_card_reward = event_rewards.set_event_card_reward,
+    set_event_sleight_reward = event_rewards.set_event_sleight_reward,
+    set_card_sleight = card_sleights.set_card_sleight,
+    set_room_of_rewards_reward = chest_rewards.set_room_of_rewards_reward,
+    set_bounty_reward = chest_rewards.set_bounty_reward,
+    set_bounties_ignore_clear = chest_rewards.set_bounties_ignore_clear,
+    get_room_of_rewards_reward = chest_rewards.get_room_of_rewards_reward,
+    get_bounty_reward = chest_rewards.get_bounty_reward,
+    get_room_of_rewards_chests = chest_rewards.get_room_of_rewards_chests,
+    get_bounty_chests = chest_rewards.get_bounty_chests,
+    set_world_order = world_order.set_world_order,
+    set_starting_deck = starting_deck.set_starting_deck,
+    get_floor_layout = floor_layouts.get_floor_layout,
+    set_floor_layout_order = floor_layouts.set_floor_layout_order,
+    set_floor_size = floor_layouts.set_floor_size,
+    set_floor_room = floor_layouts.set_floor_room,
+    set_floor_door = floor_layouts.set_floor_door,
+    FLOOR_ROOM_TYPES = floor_layouts.ROOM_TYPES,
+    FLOOR_DOOR_TYPES = floor_layouts.DOOR_TYPES,
+    set_world_drops = world_drops.set_world_drops,
+    set_chest_card_value_weights = world_drops.set_chest_card_value_weights,
+    set_object_card_chance = world_drops.set_object_card_chance,
+    set_object_card_room_cap = world_drops.set_object_card_room_cap,
+    set_drops_ignore_unlocks = drop_unlocks.set_drops_ignore_unlocks,
+    get_drops_ignore_unlocks = drop_unlocks.get_drops_ignore_unlocks,
+    set_world_card_odds = card_odds.set_world_card_odds,
+    set_heartless_reward = heartless_drops.set_heartless_reward,
+    set_heartless_first_drop_guaranteed = heartless_drops.set_heartless_first_drop_guaranteed,
+    set_heartless_card_value_weights = heartless_drops.set_heartless_card_value_weights,
+    has_first_drop = heartless_drops.has_first_drop,
+    set_first_drop = heartless_drops.set_first_drop,
+    set_moogle_pack_price = moogle_shop.set_moogle_pack_price,
+    set_moogle_value_weights = moogle_shop.set_moogle_value_weights,
+    set_moogle_floor_offer = moogle_shop.set_moogle_floor_offer,
+    set_moogle_pool = moogle_shop.set_moogle_pool,
+    set_moogle_fallback_card = moogle_shop.set_moogle_fallback_card,
+    set_moogle_any_card = moogle_shop.set_moogle_any_card,
+    MOOGLE_CATEGORIES = moogle_shop.CATEGORIES,
+    MOOGLE_FLOOR_GROUPS = moogle_shop.FLOOR_GROUPS,
     ATTACK_CARDS = card_ids.ATTACK_CARDS,
     MAGIC_CARDS = card_ids.MAGIC_CARDS,
     SUMMON_CARDS = card_ids.SUMMON_CARDS,

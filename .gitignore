@@ -1,5 +1,2 @@
-# build_cffi.py downloads and builds cffi-lua here; only the resulting
-# scripts/io_packages/cffi.dll is committed.
-build/
 *.log
 __pycache__/

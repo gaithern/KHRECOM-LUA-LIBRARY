@@ -1,6 +1,22 @@
 local LEVEL_UP_SLEIGHT_OFFSETS = {0x00, 0x02, 0x07, 0x09, 0x0E, 0x10, 0x15, 0x17, 0x1C, 0x1E, 0x23, 0x25}
 local UNREACHABLE_LEVEL = 0x65
 
+local WORLDS = {
+    TRAVERSE_TOWN = 1,
+    AGRABAH = 2,
+    OLYMPUS_COLISEUM = 3,
+    WONDERLAND = 4,
+    MONSTRO = 5,
+    HALLOWEEN_TOWN = 6,
+    ATLANTICA = 7,
+    NEVERLAND = 8,
+    HOLLOW_BASTION = 9,
+    HUNDRED_ACRE_WOOD = 10,
+    TWILIGHT_TOWN = 11,
+    DESTINY_ISLANDS = 12,
+    CASTLE_OBLIVION = 13
+}
+
 local function get_level_up_sleight_count()
     return #LEVEL_UP_SLEIGHT_OFFSETS
 end
@@ -116,6 +132,7 @@ local function set_exp_gem_divisor(gem_number, divisor)
 end
 
 return {
+    WORLDS = WORLDS,
     get_level_up_sleight_count = get_level_up_sleight_count,
     get_level_up_sleight = get_level_up_sleight,
     set_level_up_sleight = set_level_up_sleight,

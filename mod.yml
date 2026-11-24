@@ -2,10 +2,6 @@ title: KHRECOM Lua Library
 originalAuthor: Gicu
 description: Library of Lua functions for RE:Chain of Memories mods
 assets:
-- name: dll/lua54.dll
-  method: copy
-  source:
-  - name: dll/lua54.dll
 - name: scripts/io_packages/EGSGlobal.lua
   method: copy
   source:
@@ -18,26 +14,18 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/VersionCheck.lua
-- name: scripts/io_packages/cffi.dll
-  method: copy
-  source:
-  - name: scripts/io_packages/cffi.dll
-- name: scripts/io_packages/cffi_LICENSE.txt
-  method: copy
-  source:
-  - name: scripts/io_packages/cffi_LICENSE.txt
 - name: scripts/io_packages/helpers/bits.lua
   method: copy
   source:
   - name: scripts/io_packages/helpers/bits.lua
-- name: scripts/io_packages/helpers/call_redirect.lua
+- name: scripts/io_packages/helpers/log.lua
   method: copy
   source:
-  - name: scripts/io_packages/helpers/call_redirect.lua
-- name: scripts/io_packages/helpers/native.lua
+  - name: scripts/io_packages/helpers/log.lua
+- name: scripts/io_packages/helpers/memory_values.lua
   method: copy
   source:
-  - name: scripts/io_packages/helpers/native.lua
+  - name: scripts/io_packages/helpers/memory_values.lua
 - name: scripts/io_packages/json.lua
   method: copy
   source:
@@ -54,31 +42,79 @@ assets:
   method: copy
   source:
   - name: scripts/io_packages/modules/card_ids.lua
+- name: scripts/io_packages/modules/card_odds.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/card_odds.lua
+- name: scripts/io_packages/modules/card_sleights.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/card_sleights.lua
 - name: scripts/io_packages/modules/cards.lua
   method: copy
   source:
   - name: scripts/io_packages/modules/cards.lua
+- name: scripts/io_packages/modules/chest_rewards.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/chest_rewards.lua
+- name: scripts/io_packages/modules/data_tables.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/data_tables.lua
+- name: scripts/io_packages/modules/drop_unlocks.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/drop_unlocks.lua
+- name: scripts/io_packages/modules/enemies.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/enemies.lua
+- name: scripts/io_packages/modules/enemy_stats.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/enemy_stats.lua
+- name: scripts/io_packages/modules/event_rewards.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/event_rewards.lua
 - name: scripts/io_packages/modules/exe_tables.lua
   method: copy
   source:
   - name: scripts/io_packages/modules/exe_tables.lua
-- name: scripts/io_packages/modules/floor_warp.lua
+- name: scripts/io_packages/modules/floor_layouts.lua
   method: copy
   source:
-  - name: scripts/io_packages/modules/floor_warp.lua
-- name: scripts/io_packages/modules/item_popup.lua
+  - name: scripts/io_packages/modules/floor_layouts.lua
+- name: scripts/io_packages/modules/floor_rooms.lua
   method: copy
   source:
-  - name: scripts/io_packages/modules/item_popup.lua
+  - name: scripts/io_packages/modules/floor_rooms.lua
+- name: scripts/io_packages/modules/heartless_drops.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/heartless_drops.lua
+- name: scripts/io_packages/modules/loaded_files.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/loaded_files.lua
+- name: scripts/io_packages/modules/moogle_shop.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/moogle_shop.lua
 - name: scripts/io_packages/modules/sleight_ids.lua
   method: copy
   source:
   - name: scripts/io_packages/modules/sleight_ids.lua
-- name: scripts/io_packages/modules/story_rewards.lua
+- name: scripts/io_packages/modules/starting_deck.lua
   method: copy
   source:
-  - name: scripts/io_packages/modules/story_rewards.lua
-- name: scripts/io_packages/modules/world_select.lua
+  - name: scripts/io_packages/modules/starting_deck.lua
+- name: scripts/io_packages/modules/world_drops.lua
   method: copy
   source:
-  - name: scripts/io_packages/modules/world_select.lua
+  - name: scripts/io_packages/modules/world_drops.lua
+- name: scripts/io_packages/modules/world_order.lua
+  method: copy
+  source:
+  - name: scripts/io_packages/modules/world_order.lua

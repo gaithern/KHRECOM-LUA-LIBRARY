@@ -15,7 +15,6 @@ OUTPUT = ROOT / "mod.yml"
 
 ASSET_DIRS = [
     "scripts",
-    "dll",
 ]
 
 
