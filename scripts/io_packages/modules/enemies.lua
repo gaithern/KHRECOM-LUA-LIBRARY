@@ -582,11 +582,11 @@ local function swap_formation(osd, formation, swaps, finished)
 end
 
 local function apply_swap_file(file_data, swaps)
-    local first_osd = find_first_osd(file_data)
-    if first_osd == nil then
+    if ReadByte(file_data + SWAP_MARK_OFFSET, true) == SWAP_MARK then
         return
     end
-    if ReadByte(file_data + SWAP_MARK_OFFSET, true) == SWAP_MARK then
+    local first_osd = find_first_osd(file_data)
+    if first_osd == nil then
         return
     end
     local second_osd = find_second_osd(file_data, first_osd)
@@ -634,16 +634,22 @@ local function apply_room_prizes()
     end
 end
 
-local function apply_world_swaps()
-    if next(world_swaps) == nil then
-        return
-    end
-    apply_room_prizes()
-    collect_kind_names()
+local function apply_swap_manifests()
     for world_id, swaps in pairs(world_swaps) do
         for room_code, kinds in pairs(SWAP_ROOM_KINDS[world_id]) do
             apply_swap_room(world_id, room_code, kinds, swaps)
         end
+    end
+end
+
+local function apply_world_swaps(check_everything)
+    if next(world_swaps) == nil then
+        return
+    end
+    collect_kind_names()
+    if check_everything then
+        apply_room_prizes()
+        apply_swap_manifests()
     end
     for _, file in ipairs(loaded_files.list_loaded_files(ARENA_FILE_POOL)) do
         local world_id = get_swap_world(string.lower(file.name))
@@ -716,24 +722,28 @@ local function apply_boss_record(file_data, fight)
     memory_values.keep_int(waves[1].records + RECORD_VARIANT_OFFSET, fight.variant)
 end
 
-local function apply_boss_fights()
+local function apply_boss_fights(check_everything)
     if next(boss_fights) == nil then
         return
     end
     collect_kind_names()
     local arena_files = loaded_files.get_loaded_file_map(ARENA_FILE_POOL)
     for file_name, fight in pairs(boss_fights) do
-        apply_boss_manifest(fight)
+        if check_everything then
+            apply_boss_manifest(fight)
+        end
         if arena_files[file_name] ~= nil then
             apply_boss_record(arena_files[file_name], fight)
         end
     end
 end
 
-local function apply_enemies()
-    apply_boss_fights()
-    apply_world_swaps()
-    apply_world_enemy_kinds()
+local function apply_enemies(check_everything)
+    apply_boss_fights(check_everything)
+    apply_world_swaps(check_everything)
+    if check_everything then
+        apply_world_enemy_kinds()
+    end
     apply_formations()
 end
 

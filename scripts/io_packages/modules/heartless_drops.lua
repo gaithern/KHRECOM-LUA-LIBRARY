@@ -5,7 +5,6 @@ local loaded_files = require("modules.loaded_files")
 local ENEMY_PARAMETER_POOL = 21
 local DROP_CHANCE_OFFSET = 0x10
 local ALWAYS_DROP = 100
-local KIND_DIVISOR = 10000
 
 local FIRST_ENEMY_CARD = 0x44
 local LAST_ENEMY_CARD = 0x7C
@@ -28,9 +27,6 @@ local JOURNAL_FIRST_DROP_FLAGS = 0x7B
 local FIRST_DROP_FLAG = 0x80
 local FRAMES_TO_PICK_UP = 3600
 
-local TABLE_ENTRY_SIZE = 4
-local DROP_CARD_SCALE = 256
-
 local HEARTLESS_CARDS = {
     [0] = 0x00, 0x44, 0x45, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x46, 0x4F, 0x4E, 0x55, 0x56, 0x51, 0x4D, 0x5E, 0x5F,
     0x52, 0x53, 0x54, 0x57, 0x58, 0x59, 0x5B, 0x5C, 0x5A, 0x5D, 0x50, 0x61, 0x62, 0x60, 0x44, 0x51, 0x5E, 0x5F, 0x60,
@@ -42,30 +38,24 @@ local VANILLA_DROP_CHANCES = {
     4, 3, 3, 3, 3, 3, 2, 4, 2, 2, 3, 4, 3, 2, 3, 4, 3, 4, 4, 2, 3, 4, 0, 4, 3, 4, 3, 4, 4, 3, 2, 4, 2, 4, 3, 2
 }
 
-local VANILLA_SETUP_CODE = {
-    0x48, 0x63, 0xC6, 0x41, 0x8B, 0x84, 0x86, 0xE0, 0x29, 0x7C, 0x00, 0x81, 0xA3, 0x54, 0x01, 0x00, 0x00, 0xFF,
-    0xEF, 0xFF, 0xFF, 0x89, 0x83, 0xA0, 0x02, 0x00, 0x00
-}
-local SEPARATE_CARDS_SETUP_CODE = {
-    0x41, 0x8B, 0x84, 0xB6, 0xE0, 0x29, 0x7C, 0x00, 0x80, 0xA3, 0x55, 0x01, 0x00, 0x00, 0xEF, 0x0F, 0xB6, 0xCC,
-    0x89, 0x8B, 0xA0, 0x02, 0x00, 0x00, 0x0F, 0xB6, 0xC0
-}
-
 local VANILLA_DROP_CODE = {
     0x44, 0x8B, 0xC0, 0xB8, 0x1F, 0x85, 0xEB, 0x51, 0x41, 0xF7, 0xE8, 0xC1, 0xFA, 0x05, 0x8B, 0xCA, 0xC1, 0xE9,
     0x1F, 0x03, 0xD1, 0x6B, 0xCA, 0x64, 0x44, 0x2B, 0xC1, 0x44, 0x3B, 0xC6, 0x7D, 0x12, 0x8B, 0x87, 0xA0, 0x02,
     0x00, 0x00, 0x89, 0x45, 0x07, 0x44, 0x89, 0x7D, 0x0B, 0xE9, 0xD3, 0x00, 0x00, 0x00
 }
-local ROLL_AND_SET_CARD_CODE = {
-    0x31, 0xD2, 0xB9, 0x64, 0x00, 0x00, 0x00, 0xF7, 0xF1, 0x3B, 0xD6, 0x7D, 0x25, 0x8B, 0x87, 0xA0, 0x02, 0x00,
-    0x00, 0x89, 0x45, 0x07, 0x8B, 0x8F, 0x28, 0x01, 0x00, 0x00
+local ROLL_AND_FIND_KIND_CODE = {
+    0x31, 0xD2, 0x6A, 0x64, 0x59, 0xF7, 0xF1, 0x3B, 0xD6, 0x7D, 0x27, 0x8B, 0x87, 0x28, 0x01, 0x00, 0x00, 0x31, 0xD2,
+    0xB9, 0x10, 0x27, 0x00, 0x00, 0xF7, 0xF1
 }
-local STORE_KIND_INSTRUCTION = {0x89, 0x0D}
+local LOAD_TABLE_INSTRUCTION = {0x48, 0x8D, 0x0D}
+local STORE_KIND_AND_SET_PRIZE_CODE = {
+    0x89, 0x51, 0xF8, 0x48, 0x8B, 0x04, 0xD1, 0x48, 0x89, 0x45, 0x07
+}
 local JUMP_INSTRUCTION = 0xE9
-local READ_VALUE_INSTRUCTION = {0x8B, 0x05}
-local SET_VALUE_INSTRUCTION = {0x89, 0x45, 0x0B}
 local SPAWN_PRIZE_CODE_OFFSET = 0xFF
-local NEXT_VALUE_OFFSET = 4
+local PRIZE_TABLE_OFFSET = 8
+local PRIZE_ENTRY_SIZE = 8
+local PRIZE_VALUE_OFFSET = 4
 local NO_OPERATION = 0x90
 local DISTANCE_SIZE = 4
 local DISTANCE_RANGE = 4294967296
@@ -76,6 +66,8 @@ local value_weights = {10, 10, 10, 10, 10, 10, 10, 10, 10, 10}
 local rewards = {}
 local guarantee_first_drop = false
 local pending_drop = nil
+local values_picked = {}
+local code_applied = false
 local reported_problems = {}
 
 local function report_once(message)
@@ -149,6 +141,7 @@ local function set_heartless_card_value_weights(weights)
         return false
     end
     value_weights = weights
+    values_picked = {}
     return true
 end
 
@@ -168,10 +161,6 @@ local function pick_value()
             return index - 1
         end
     end
-end
-
-local function write_next_value()
-    WriteInt(heartlessDropSignal + NEXT_VALUE_OFFSET, pick_value())
 end
 
 local function get_reward(heartless_card)
@@ -244,12 +233,10 @@ end
 
 local function get_new_drop_code()
     local code = {}
-    add_bytes(code, ROLL_AND_SET_CARD_CODE)
-    add_bytes(code, STORE_KIND_INSTRUCTION)
-    add_distance(code, heartlessDropSignal, heartlessDropCode)
-    add_bytes(code, READ_VALUE_INSTRUCTION)
-    add_distance(code, heartlessDropSignal + NEXT_VALUE_OFFSET, heartlessDropCode)
-    add_bytes(code, SET_VALUE_INSTRUCTION)
+    add_bytes(code, ROLL_AND_FIND_KIND_CODE)
+    add_bytes(code, LOAD_TABLE_INSTRUCTION)
+    add_distance(code, heartlessDropSignal + PRIZE_TABLE_OFFSET, heartlessDropCode)
+    add_bytes(code, STORE_KIND_AND_SET_PRIZE_CODE)
     code[#code + 1] = JUMP_INSTRUCTION
     add_distance(code, heartlessDropCode + SPAWN_PRIZE_CODE_OFFSET, heartlessDropCode)
     while #code < #VANILLA_DROP_CODE do
@@ -258,43 +245,37 @@ local function get_new_drop_code()
     return code
 end
 
-local function is_code_known(new_drop_code)
-    local setup_known = is_code_at(heartlessSetupCode, VANILLA_SETUP_CODE) or
-        is_code_at(heartlessSetupCode, SEPARATE_CARDS_SETUP_CODE)
-    local drop_known = is_code_at(heartlessDropCode, VANILLA_DROP_CODE) or
-        is_code_at(heartlessDropCode, new_drop_code)
-    return setup_known and drop_known
+local function get_prize_address(kind)
+    return heartlessDropSignal + PRIZE_TABLE_OFFSET + kind * PRIZE_ENTRY_SIZE
 end
 
-local function is_table_known()
+local function write_prize_cards()
     for kind = 0, LAST_KIND do
-        local attack_card = ReadByte(heartlessCardTable + kind * TABLE_ENTRY_SIZE)
-        if attack_card ~= HEARTLESS_CARDS[kind] then
-            return false
+        local wanted_card = get_reward(HEARTLESS_CARDS[kind])
+        if ReadInt(get_prize_address(kind)) ~= wanted_card then
+            WriteInt(get_prize_address(kind), wanted_card)
         end
     end
-    return true
 end
 
-local function write_table()
+local function write_prize_values()
     for kind = 0, LAST_KIND do
-        local attack_card = HEARTLESS_CARDS[kind]
-        local wanted = attack_card + get_reward(attack_card) * DROP_CARD_SCALE
-        local address = heartlessCardTable + kind * TABLE_ENTRY_SIZE
-        if ReadInt(address) ~= wanted then
-            WriteInt(address, wanted)
+        if values_picked[kind] == nil then
+            values_picked[kind] = true
+            WriteInt(get_prize_address(kind) + PRIZE_VALUE_OFFSET, pick_value())
         end
     end
 end
 
 local function apply_code()
     local new_drop_code = get_new_drop_code()
-    if not is_code_known(new_drop_code) or not is_table_known() then
+    if is_code_at(heartlessDropCode, new_drop_code) then
+        return true
+    end
+    if not is_code_at(heartlessDropCode, VANILLA_DROP_CODE) then
         report_once("the enemy card drop code is not where it should be")
         return false
     end
-    write_table()
-    write_code(heartlessSetupCode, SEPARATE_CARDS_SETUP_CODE)
     write_code(heartlessDropCode, new_drop_code)
     return true
 end
@@ -322,11 +303,12 @@ local function get_card_count(card_id)
 end
 
 local function read_new_drop()
-    local kind = ReadInt(heartlessDropSignal) % KIND_DIVISOR
+    local kind = ReadInt(heartlessDropSignal)
     if kind == 0 then
         return
     end
     WriteInt(heartlessDropSignal, 0)
+    values_picked[kind] = nil
     local heartless_card = HEARTLESS_CARDS[kind]
     if heartless_card == nil or not is_heartless_card(heartless_card) then
         return
@@ -386,16 +368,19 @@ local function apply_chances()
     end
 end
 
-local function apply_heartless_drops()
+local function apply_heartless_drops(check_everything)
     if next(rewards) == nil and not guarantee_first_drop then
         return
     end
-    write_next_value()
-    if not apply_code() then
-        return
+    write_prize_values()
+    if check_everything then
+        write_prize_cards()
+        code_applied = apply_code()
+        apply_chances()
     end
-    update_pending_drop()
-    apply_chances()
+    if code_applied then
+        update_pending_drop()
+    end
 end
 
 return {

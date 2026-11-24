@@ -19,6 +19,22 @@ local BATTLE_CARD_FILE = "battlecardlist.bin"
 local SLEIGHT_FILE = "stockskilllist.bin"
 local STORY_DOOR_FILE = "rcnorma1.bin"
 
+local ENEMY_PARAMETER_POOL = 21
+local FRAMES_BETWEEN_CHECKS = 30
+local FRAMES_BETWEEN_SLOW_CHECKS = 600
+local SETTLE_FRAMES = 10
+local ENEMY_MANIFESTS_FRAME = 0
+local CHEST_REWARDS_FRAME = 1
+local CARD_SLEIGHTS_FRAME = 2
+local WORLD_ORDER_FRAME = 3
+local HEARTLESS_DROPS_FRAME = 4
+local ENEMY_STATS_FRAME = 5
+local DATA_FILES_FRAME = 6
+local FLOOR_LAYOUTS_FRAME = 7
+
+local frame_count = 0
+local frames_to_settle = 0
+
 local ROW_SIZE = 0x10
 local HIT_COUNT = 4
 local CARD_CP_OFFSET = 0x0A
@@ -309,8 +325,7 @@ local function apply_story_doors(file_data)
     end
 end
 
-local function update_data_tables()
-    local file_map = loaded_files.get_loaded_file_map()
+local function apply_data_files(file_map)
     local battle_card_file = file_map[BATTLE_CARD_FILE]
     if battle_card_file ~= nil then
         apply_card_stats(battle_card_file)
@@ -323,19 +338,65 @@ local function update_data_tables()
     if story_door_file ~= nil then
         apply_story_doors(story_door_file)
     end
+    card_odds.apply_card_odds(file_map)
+end
+
+local function is_frame_due(frames_between, frame_number)
+    return frame_count % frames_between == frame_number
+end
+
+local function update_frames_to_settle()
+    if loaded_files.did_files_change(loaded_files.DATA_FILE_POOL) then
+        frames_to_settle = SETTLE_FRAMES
+    elseif frames_to_settle > 0 then
+        frames_to_settle = frames_to_settle - 1
+    end
+end
+
+local function apply_loaded_tables(file_map)
     moogle_shop.apply_moogle_shop(file_map)
     world_drops.apply_world_drops(file_map)
-    floor_layouts.apply_floor_layouts(file_map)
-    event_rewards.apply_event_rewards()
-    enemies.apply_enemies()
-    enemy_stats.apply_enemy_stats()
-    chest_rewards.apply_chest_rewards()
-    card_sleights.apply_card_sleights()
-    drop_unlocks.apply_drop_unlocks()
-    card_odds.apply_card_odds(file_map)
-    heartless_drops.apply_heartless_drops()
-    world_order.apply_world_order()
     starting_deck.apply_starting_deck(file_map)
+    if frames_to_settle > 0 or is_frame_due(FRAMES_BETWEEN_CHECKS, DATA_FILES_FRAME) then
+        apply_data_files(file_map)
+    end
+    if frames_to_settle > 0 or is_frame_due(FRAMES_BETWEEN_SLOW_CHECKS, FLOOR_LAYOUTS_FRAME) then
+        floor_layouts.apply_floor_layouts(file_map)
+    end
+end
+
+local function apply_enemy_files()
+    local enemies_changed = loaded_files.did_files_change(ENEMY_PARAMETER_POOL)
+    if enemies_changed or is_frame_due(FRAMES_BETWEEN_CHECKS, ENEMY_STATS_FRAME) then
+        enemy_stats.apply_enemy_stats()
+    end
+    local check_drops = enemies_changed or is_frame_due(FRAMES_BETWEEN_CHECKS, HEARTLESS_DROPS_FRAME)
+    heartless_drops.apply_heartless_drops(check_drops)
+    enemies.apply_enemies(is_frame_due(FRAMES_BETWEEN_SLOW_CHECKS, ENEMY_MANIFESTS_FRAME))
+end
+
+local function apply_game_code()
+    if is_frame_due(FRAMES_BETWEEN_CHECKS, CHEST_REWARDS_FRAME) then
+        chest_rewards.apply_chest_rewards()
+    end
+    if is_frame_due(FRAMES_BETWEEN_CHECKS, CARD_SLEIGHTS_FRAME) then
+        card_sleights.apply_card_sleights()
+        drop_unlocks.apply_drop_unlocks()
+    end
+    if is_frame_due(FRAMES_BETWEEN_CHECKS, WORLD_ORDER_FRAME) then
+        world_order.apply_world_order()
+    end
+end
+
+local function update_data_tables()
+    loaded_files.start_update()
+    update_frames_to_settle()
+    apply_loaded_tables(loaded_files.get_loaded_file_map())
+    event_rewards.apply_event_rewards()
+    apply_enemy_files()
+    apply_game_code()
+    loaded_files.finish_update()
+    frame_count = frame_count + 1
 end
 
 return {
