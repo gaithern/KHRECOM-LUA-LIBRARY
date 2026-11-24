@@ -43,6 +43,9 @@ local VANILLA_DROP_CODE = {
     0x1F, 0x03, 0xD1, 0x6B, 0xCA, 0x64, 0x44, 0x2B, 0xC1, 0x44, 0x3B, 0xC6, 0x7D, 0x12, 0x8B, 0x87, 0xA0, 0x02,
     0x00, 0x00, 0x89, 0x45, 0x07, 0x44, 0x89, 0x7D, 0x0B, 0xE9, 0xD3, 0x00, 0x00, 0x00
 }
+local FEW_MAP_CARDS_JUMP_OFFSET = -0x54
+local FEW_MAP_CARDS_JUMP = {0x0F, 0x86, 0x80, 0x00, 0x00, 0x00}
+local NO_JUMP = {0x90, 0x90, 0x90, 0x90, 0x90, 0x90}
 local ROLL_AND_FIND_KIND_CODE = {
     0x31, 0xD2, 0x6A, 0x64, 0x59, 0xF7, 0xF1, 0x3B, 0xD6, 0x7D, 0x27, 0x8B, 0x87, 0x28, 0x01, 0x00, 0x00, 0x31, 0xD2,
     0xB9, 0x10, 0x27, 0x00, 0x00, 0xF7, 0xF1
@@ -267,6 +270,18 @@ local function write_prize_values()
     end
 end
 
+local function allow_drops_with_few_map_cards()
+    local address = heartlessDropCode + FEW_MAP_CARDS_JUMP_OFFSET
+    if is_code_at(address, NO_JUMP) then
+        return
+    end
+    if not is_code_at(address, FEW_MAP_CARDS_JUMP) then
+        report_once("the map card check is not where it should be")
+        return
+    end
+    write_code(address, NO_JUMP)
+end
+
 local function apply_code()
     local new_drop_code = get_new_drop_code()
     if is_code_at(heartlessDropCode, new_drop_code) then
@@ -376,6 +391,7 @@ local function apply_heartless_drops(check_everything)
     if check_everything then
         write_prize_cards()
         code_applied = apply_code()
+        allow_drops_with_few_map_cards()
         apply_chances()
     end
     if code_applied then

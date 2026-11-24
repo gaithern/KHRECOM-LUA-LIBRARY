@@ -338,7 +338,6 @@ local function apply_data_files(file_map)
     if story_door_file ~= nil then
         apply_story_doors(story_door_file)
     end
-    card_odds.apply_card_odds(file_map)
 end
 
 local function is_frame_due(frames_between, frame_number)
@@ -357,7 +356,9 @@ local function apply_loaded_tables(file_map)
     moogle_shop.apply_moogle_shop(file_map)
     world_drops.apply_world_drops(file_map)
     starting_deck.apply_starting_deck(file_map)
-    if frames_to_settle > 0 or is_frame_due(FRAMES_BETWEEN_CHECKS, DATA_FILES_FRAME) then
+    local check_data_files = frames_to_settle > 0 or is_frame_due(FRAMES_BETWEEN_CHECKS, DATA_FILES_FRAME)
+    card_odds.apply_card_odds(file_map, check_data_files)
+    if check_data_files then
         apply_data_files(file_map)
     end
     if frames_to_settle > 0 or is_frame_due(FRAMES_BETWEEN_SLOW_CHECKS, FLOOR_LAYOUTS_FRAME) then

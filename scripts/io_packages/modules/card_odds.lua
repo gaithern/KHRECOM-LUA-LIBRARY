@@ -39,6 +39,8 @@ local STANDARD_CARDS = {
 
 local world_odds = {}
 local odds_applied = false
+local last_odds = nil
+local last_map_file = nil
 local reported_problems = {}
 
 local function report_once(message)
@@ -309,12 +311,18 @@ local function has_any_odds()
     return next(world_odds) ~= nil
 end
 
-local function apply_card_odds(file_map)
+local function apply_card_odds(file_map, check_everything)
     if not has_any_odds() and not odds_applied then
         return
     end
     odds_applied = true
     local odds = get_current_odds()
+    local map_file = file_map[MAP_CARD_DROP_FILE]
+    if not check_everything and odds == last_odds and map_file == last_map_file then
+        return
+    end
+    last_odds = odds
+    last_map_file = map_file
     apply_battle_odds(odds)
     apply_map_odds(odds, file_map)
 end
