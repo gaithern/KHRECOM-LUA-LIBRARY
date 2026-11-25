@@ -58,22 +58,6 @@ end
 `require("khrecom_lua_library")` can happen at the top of a script. The address globals it uses are only read
 when a function is called, which is after `VersionCheck` has run.
 
-## Address status
-
-Most addresses come from KH-RECOM-AP-LUA, which has used them in play on both builds. These ones have not been
-checked in game yet:
-
-| Address | Build | Why it is unverified |
-| :------ | :---- | :------------------- |
-| `soraControlPointer`, `soraDeathPointer` | EGS | Worked out from the Steam values using the 0x600 gap every other pointer pair has. The old DeathLink script was Steam only. |
-| `watchedDaysFlag` | Steam | Worked out from the EGS value the same way. The old Days script was EGS only. |
-| `expGemTable` | both | Both builds use the same address, unlike every other table. One of them is probably wrong. |
-| `bossRewardTable` | both | Taken from the exe research sheets. Not yet read or written by any script. |
-| `worldSelect*Table` | both | Found in the exe code on both builds. Not yet written in game, so whether the screen picks up a change mid-game is untested. |
-| Floor rooms (`floorState*`, `floorRoom*`, `createRoomFunction`, `mapCardToRoomCodeFunction`, `getFloorWorldFunction`) | EGS | Making a whole floor's rooms while outside the floor was tested in game on Steam. The EGS addresses were found by matching the Steam code bytes. |
-| Data tables (`loadedFilePoolTable`, `moogleFallback*`) | EGS | Tested in game on Steam. The EGS pool table was read from the EGS lookup code; the EGS fallback card addresses were found by matching the Steam code bytes. |
-| Decks 2 and 3 | both | Deck 1 is at `-0x8D8` and deck 3 at `-0x5C0`, so decks are `0x18C` bytes apart. Deck 2 is inferred from that. |
-
 ## Currently shipped functions
 All functions below are available on the table returned by `require("khrecom_lua_library")`.
 
@@ -295,44 +279,6 @@ padded with weight 0 entries, and a longer one is refused (logged once).
 | `MOOGLE_FLOOR_GROUPS` | `FLOOR_1` 1, `FLOORS_2_TO_6` 2, `FLOORS_7_TO_10` 3, `FLOORS_11_AND_UP` 4 |
 | `FLOOR_ROOM_TYPES` | `CARD` 0, `START` 1, `EVENT_1` 2, `EVENT_2` 3, `EVENT_3` 4, `GOAL` 5, `EXTRA` 6, `LAST` 7, `FIX` 8 |
 | `FLOOR_DOOR_TYPES` | `NORMAL` 0, `TO_EVENT_1` 1, `TO_EVENT_2` 2, `TO_EVENT_3` 3, `OPEN_AFTER_EVENT` 4, `TO_GOAL` 5, `TO_EXTRA` 6, `ONE_WAY` 7, `WORLD_ENTRANCE` 8, `SELECT_WORLD` 9, `FLOOR_CHANGE` 10, `TO_LAST` 11, `EVENT_ROOM` 12, `DEBUG` 13 |
-
-How it finds the files: the game keeps a list of loaded files per pool (`loadedFilePoolTable`, Steam `0xAC6730`, EGS
-`0xAC6130`). Each node has the file entry at `+0x08` and the next node at `+0x10`; the entry has a file object at
-`+0x08` and the name at `+0x10`; the file object has the data pointer at `+0x08`.
-
-Notes:
-- Chest and object weights are picked with `rand % 100`, so a world's weights should add up to 100. A chest that lands
-  on a card the player has not unlocked yet rolls again among that world's basic cards, unless
-  `set_drops_ignore_unlocks(true)` is on.
-- Heartless drops: the last enemy defeated in a battle rolls its drop chance (`@ENP + 0x10` in `EN00kk.epd`, percent) for
-  the card in `heartlessCardTable` (one u32 per enemy kind). That table also sets the card the Heartless attacks with, so
-  27 bytes at `heartlessSetupCode` are changed to read the attack card and the drop card from separate bytes of the entry.
-  50 bytes at `heartlessDropCode` are rewritten to give a random value and to write the enemy kind to
-  `heartlessDropSignal` (spare memory). When the reward's count goes up after that, bit 0x80 of a journal byte
-  (journal `+0x7B` on) marks the first drop, so it is saved with the game. The game's own conditions stay: no drop in the
-  tutorial, with 4 or fewer map cards, or when the card can not be held. Not tested in game yet.
-- Card odds: `set_world_card_odds` writes its own lists into spare memory at the end of the exe's `.text` section
-  (`cardOddsBuffer`, 464 bytes) and changes 9 bytes in the two functions that read `AtkCardDrop.bin` and
-  `MapCardDrop.bin` (`battleCardListReadCode`, `mapCardListReadCode`) so they read those lists. The game normally rolls
-  a world's special cards first and its 12 standard cards second; `standardDropCardTable` is the byte table that says
-  which are standard, and it is set so everything is in the first roll. Both go back to normal in worlds without odds.
-  New odds show from the next room on. Not tested in game yet.
-- Drop unlocks: the check is an exe function (`dropUnlockCheckCode`, Steam `0x1C04D0`, EGS `0x1C0080`) that allows any
-  card above 0x30 without looking at the save. `set_drops_ignore_unlocks` changes that limit (the byte at `+0x0D`) to 0,
-  so every card is allowed. Only the chest and object rolls use it, and nothing in the save changes. Not tested in game yet.
-- The drop manager (the object that rolls chest, object and map card drops) copies the drop lists out of the files
-  every time a room is set up, so drop changes show from the next room on, not in the room you are standing in.
-  Which world's file is loaded is read from the `WO02xx.BIN` archive in pool 23.
-- The Moogle shop files are only loaded while a shop is open. The changes are written as soon as they appear.
-- World order: the world select code has a path that offers one world per floor (normally floors 11-13). Two jumps
-  (`worldSelectFirstJump`, `worldSelectSecondJump`) are changed so floors 2-13 all use it; it reads 12 u16 world IDs from
-  `worldSelectOneWorldTable` (Steam `0x51D584`, EGS `0x51D694`), which overlap the other world select tables. Floor 1 is
-  an immediate at `worldSelectFirstFloorCode`. Do not use it together with `set_world_select_card`. Not tested in game yet.
-- Floor layouts can not grow: each floor keeps its room count, and every room keeps 4 door slots. The game builds a floor's room list from `Rooms1.BIN` (`fnc_build_floor_rooms`) when the floor is built (for example after picking its world card), so layout changes show on floors built after the write, not on a floor that is already built.
-- Event rewards: the room's event script is loaded by name into file pool 37 (`WO010006.ABC` for world 1 room 6). A give is the instructions push 5 (card with popup) or push 7 (sleight), push the card ID, push the value, then opcode `0xAD`; each instruction is 8 bytes (`u16 opcode, u16 flag, s32 operand`, `0x1C` = push). The game copies a script's code into its own buffer once the file is loaded, a frame or more later, so the change has to be in the file before that; `update_data_tables()` writes it as soon as the file appears. Tested in game on Steam: a floor's opening event gave Crabclaw instead of the Key of Beginnings.
-- Enemies: a field battle picks one of the arena file's 32 formations: the room's map card sets a range (normal rooms 0-6, White Room 13-15, Black Room 16-18, Bottomless Darkness 19-23) and the game prefers formations that contain the kind of field enemy you touched. The kinds a world loads come from the exe's resource manifests (`resourceManifestTable`, one per category; `[100 + world]` lists each room's files, and an arena lists its enemies as resource numbers `"1200kk"`); `set_world_enemy_kinds` points those entries at another kind's string. Loaded arena files store their offsets as handles (`0x80000000 | segment << 25 | low 25 bits`, segment bases at `handleSegmentTable`). Tested in game on Steam: Sea Neons in Olympus Coliseum.
-- Room of Rewards and bounty chests: the rewards are immediates in two exe functions, the Room of Rewards chests (room code 0x18, `roomOfRewardsChestCode`, Steam `0x1BD9D0`, EGS `0x1BD580`) and the first chests of each world (`bountyChestCode`, Steam `0x1BE4E0`, EGS `0x1BE090`). Each reward is `mov dword [rdi], sleight` (6 bytes) or `mov dword [rdi+4], card` (7 bytes); a card chest becomes a sleight chest by changing the displacement 4 to 0. The code is checked before every write. Several sleight chests only give their sleight when script byte 0x61 is not 3, and otherwise roll a normal card. Not tested in game yet.
-- Enemy stats: each enemy kind's `ENEMY/00kk/EN00kk.EPD` stays loaded while its world is (file pool 21, `EN00kk.epd`, starting at `@ENP`). `@ENP + 0xB0` is 13 rows of `{s32 HP, s32 attack, s32 EXP, 0}`, one per floor; `@ENP + 0x184` is the deck, one count per card value 0-9 (`@ENP + 0x44` is 0 for kinds without one). Battles read the loaded copy, so changes apply from the next battle. Tested in game on Steam (Sea Neon HP 1, EXP 999, one value-9 card).
 
 ### World select tables
 When Sora (or Riku) starts a floor, the world-select screen builds its list of world cards from three tables in
